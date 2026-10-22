@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Travel Details · Malda, Dec 2026</title>
+  <meta name="description" content="Share your train details for the family celebration in Malda.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#fbf8f4">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='52' height='52' fill='none' stroke='%23c9a063' stroke-width='5'/%3E%3Ctext x='32' y='43' font-size='30' text-anchor='middle' fill='%239a3d14' font-family='Georgia'%3E65%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Forum&family=Pinyon+Script&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <img class="floral floral-tl" src="assets/floral-tl.webp" alt="" aria-hidden="true">
+  <img class="floral floral-br" src="assets/floral-br.webp" alt="" aria-hidden="true">
+
+  <main class="card">
+    <div class="frame" aria-hidden="true"></div>
+
+    <header class="hero">
+      <p class="caps lead">With the blessings of God and the love of our family</p>
+      <p class="numeral">65<sup>th</sup></p>
+      <p class="script">Wedding Anniversary</p>
+      <p class="caps small">of our beloved</p>
+      <h1>Dadu &amp; Dadi</h1>
+      <p class="dateline"><span>Dec 21–22, 2026</span><span class="sep"></span><span>Malda</span></p>
+      <p class="intro">To help us plan pickups and stays, please share your train tickets below. Upload the IRCTC PDF or a screenshot and we will fill in the details for you.</p>
+      <p class="hush">Shh… it’s a surprise. Please don’t share this page with them.</p>
+    </header>
+
+    <form id="form" novalidate>
+      <section class="step">
+        <h2><span class="num">1</span> About you</h2>
+        <div class="grid two">
+          <label>Your name
+            <input name="submittedBy" required autocomplete="name" placeholder="e.g. Ritu Agarwal">
+          </label>
+          <label>Phone / WhatsApp
+            <input name="phone" required type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98xxxxxxxx">
+          </label>
+        </div>
+        <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      </section>
+
+      <section class="step">
+        <h2><span class="num">2</span> Your train tickets</h2>
+        <p class="hint">Add your ticket to Malda and, if you have it, your return ticket. One ticket can include the whole family.</p>
+
+        <div id="tickets"></div>
+
+        <label class="drop" id="drop">
+          <input id="file" type="file" accept="application/pdf,image/*" multiple>
+          <span class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          </span>
+          <span class="drop-title">Upload ticket PDF or screenshot</span>
+          <span class="drop-sub">Tap to choose, or drop files here</span>
+        </label>
+
+        <div class="row-links">
+          <button type="button" class="link" id="manual">Type details instead</button>
+          <label class="check"><input type="checkbox" id="notBooked" name="notBooked"> I haven’t booked yet</label>
+        </div>
+      </section>
+
+      <p class="error" id="error" role="alert" hidden></p>
+      <button class="submit" type="submit" id="submit">Send travel details</button>
+    </form>
+
+    <section class="done" id="done" hidden>
+      <p class="script">Thank you!</p>
+      <p>Your travel details have reached us. If your plans change, just submit again with the new ticket.</p>
+      <button type="button" class="link" id="again">Submit another</button>
+    </section>
+  </main>
+
+  <template id="ticket-tpl">
+    <article class="ticket">
+      <div class="ticket-head">
+        <div class="seg" role="radiogroup" aria-label="Direction">
+          <label><input type="radio" value="arrival" checked><span>Coming to Malda</span></label>
+          <label><input type="radio" value="return"><span>Going from Malda</span></label>
+        </div>
+        <button type="button" class="icon remove" aria-label="Remove this ticket">✕</button>
+      </div>
+      <p class="status" aria-live="polite"></p>
+      <div class="fields">
+        <div class="grid three">
+          <label>PNR<input data-k="pnr" inputmode="numeric" maxlength="10"></label>
+          <label>Train no.<input data-k="trainNo" inputmode="numeric" maxlength="5"></label>
+          <label>Train name<input data-k="trainName"></label>
+        </div>
+        <div class="grid three">
+          <label>From<input data-k="fromName" placeholder="Station"></label>
+          <label>Boarding at<input data-k="boardingName" placeholder="Same as From"></label>
+          <label>To<input data-k="toName" placeholder="Station"></label>
+        </div>
+        <div class="grid four">
+          <label>Departs on<input data-k="depDate" type="date"></label>
+          <label>at<input data-k="depTime" type="time"></label>
+          <label>Arrives on<input data-k="arrDate" type="date"></label>
+          <label>at<input data-k="arrTime" type="time"></label>
+        </div>
+        <label class="class-field">Class<input data-k="travelClass" placeholder="e.g. THIRD AC (3A)"></label>
+        <div class="pax">
+          <div class="pax-head"><span>Passengers</span><span>Age</span><span>Gender</span><span>Seat / status</span><span></span></div>
+          <div class="pax-rows"></div>
+          <button type="button" class="link add-pax">+ Add passenger</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <template id="pax-tpl">
+    <div class="pax-row">
+      <input data-p="name" placeholder="Full name" aria-label="Passenger name">
+      <input data-p="age" inputmode="numeric" maxlength="3" aria-label="Age">
+      <select data-p="gender" aria-label="Gender"><option value=""></option><option>M</option><option>F</option><option>T</option></select>
+      <input data-p="status" placeholder="CNF/B2/34" aria-label="Seat or status">
+      <button type="button" class="icon" aria-label="Remove passenger">✕</button>
+    </div>
+  </template>
+</body>
+</html>
