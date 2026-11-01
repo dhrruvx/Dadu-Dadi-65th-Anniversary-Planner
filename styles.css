@@ -128,7 +128,17 @@ input[aria-invalid='true'] { border-color: var(--err); background: #fff7f5; }
 .drop-icon { color: var(--rust); }
 .drop-title { font-family: var(--caps); font-size: 13px; letter-spacing: .14em; color: var(--rust); }
 .drop-sub { font-family: var(--serif); text-transform: none; letter-spacing: normal; font-size: 15px; color: var(--muted); }
-.disabled .drop, .disabled #tickets, .disabled #manual { opacity: .4; pointer-events: none; }
+.disabled #drop, .disabled #tickets, .disabled #manual { opacity: .4; pointer-events: none; }
+
+.aadhaar-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.aadhaar-list:empty { display: none; }
+.thumb { position: relative; aspect-ratio: 4 / 3; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .pdf { display: grid; place-items: center; height: 100%; font-family: var(--caps); font-size: 12px; letter-spacing: .14em; color: var(--rust); background: #fffaf2; }
+.thumb.loading { opacity: .5; }
+.thumb .icon { position: absolute; top: 3px; right: 3px; width: 28px; height: 28px; font-size: 13px; background: rgba(255, 255, 255, .92); }
+.thumb.bad { border-color: var(--err); }
+.thumb .bad-msg { position: absolute; inset: auto 0 0; padding: 2px 4px; font-size: 12px; background: #fff4f1; color: var(--err); }
 
 .row-links { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .row-links .check { margin: 0; }

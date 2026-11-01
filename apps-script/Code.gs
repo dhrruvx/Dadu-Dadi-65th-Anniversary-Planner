@@ -8,20 +8,22 @@
 const TZ = 'Asia/Kolkata';
 const FOLDER_NAME = 'Anniversary travel tickets';
 const NOT_BOOKED = 'Not booked yet';
+const AADHAAR_FOLDER = 'Aadhaar Cards';
+const NO_AADHAAR = 'Not uploaded';
 
 // One tab per direction. Each tab's name is also its Drive subfolder and its "Journey" value.
 const TABS = {
   arrival: {
     name: 'Coming to Malda',
-    headers: ['Journey', 'Passenger', 'Phone', 'Train No', 'Train Name', 'Seat', 'Arrival', 'Ticket File'],
+    headers: ['Journey', 'Passenger', 'Phone', 'Train No', 'Train Name', 'Seat', 'Arrival', 'Ticket File', 'Aadhaar'],
     time: 'Arrival',
   },
   return: {
     name: 'Going from Malda',
-    headers: ['Journey', 'Passenger', 'Phone', 'Train No', 'Train Name', 'Seat', 'Departure', 'Ticket File'],
+    headers: ['Journey', 'Passenger', 'Phone', 'Train No', 'Train Name', 'Seat', 'Departure', 'Ticket File', 'Aadhaar'],
     time: 'Departure',
   },
-  none: { name: NOT_BOOKED, headers: ['Passenger', 'Phone'] },
+  none: { name: NOT_BOOKED, headers: ['Passenger', 'Phone', 'Aadhaar'] },
 };
 
 function setup() {
@@ -46,6 +48,9 @@ function setup() {
     ['Guests going from Malda', '=MAX(0,COUNTA(' + g + '!B:B)-1)'],
     ['Not booked yet', '=MAX(0,COUNTA(' + n + '!A:A)-1)'],
   ]);
+  sum.getRange('A4:B4').setValues([['Arriving families with Aadhaar uploaded',
+    '=IFERROR(COUNTUNIQUE(FILTER(' + c + '!C2:C,' + c + '!I2:I<>"' + NO_AADHAAR + '",' + c + '!C2:C<>"")),0)' +
+    '&" of "&IFERROR(COUNTUNIQUE(FILTER(' + c + '!C2:C,' + c + '!C2:C<>"")),0)']]);
   sum.getRange('A5').setValue('Arrivals into Malda by train').setFontWeight('bold');
   sum.getRange('A6').setFormula('=IFERROR(QUERY(' + c + '!A1:H,"select G, D, E, count(B) where B is not null ' +
     'group by G, D, E order by G label G \'Arrives\', D \'Train No\', E \'Train\', count(B) \'Guests\'",1),"No arrivals yet")');
@@ -58,6 +63,7 @@ function setup() {
 
   getFolder_(TABS.arrival.name);
   getFolder_(TABS.return.name);
+  getFolder_(AADHAAR_FOLDER);
 }
 
 function doGet() {
@@ -72,23 +78,28 @@ function doPost(e) {
     const phone = clean_(p.phone, 20).replace(/^'/, '');
     if (!by || !phone) return json_({ ok: false, error: 'Name and phone are required' });
 
-    // Build every row first, and save ticket files to Drive *before* taking the lock:
+    // Save files to Drive and build every row *before* taking the lock:
     // uploads are the slow part and don't need to wait in line.
+    // `sid` identifies this submission, so an automatic retry doesn't save the same files twice.
+    const sid = clean_(p.submissionId, 64);
+    const aadhaarUrl = saveAadhaar_(p.aadhaar || [], by, phone, sid) || NO_AADHAAR;
     const byTab = { arrival: [], return: [], none: [] };
     if (p.notBooked || !p.tickets || !p.tickets.length) {
-      byTab.none.push({ Passenger: by, Phone: text_(phone) });
+      byTab.none.push({ Passenger: by, Phone: text_(phone), Aadhaar: aadhaarUrl });
     } else {
-      p.tickets.slice(0, 10).forEach(function (t) {
+      p.tickets.slice(0, 10).forEach(function (t, i) {
         const k = t.journey === 'return' ? 'return' : 'arrival';
         const tab = TABS[k];
-        const fileUrl = t.file && t.file.base64 ? saveFile_(t.file, by, t, tab.name) : '';
+        const fileUrl = t.file && t.file.base64
+          ? once_(sid && sid + ':t' + i, function () { return saveFile_(t.file, by, t, tab.name); })
+          : '';
         const time = k === 'arrival' ? when_(t.arrDate, t.arrTime) : when_(t.depDate, t.depTime);
         const people = (t.passengers || []).filter(function (x) { return x && clean_(x.name, 80); });
         (people.length ? people : [{ name: by }]).slice(0, 12).forEach(function (x) {
           const row = {
             Journey: tab.name, Passenger: clean_(x.name, 80), Phone: text_(phone),
             'Train No': text_(clean_(t.trainNo, 6)), 'Train Name': clean_(t.trainName, 60),
-            Seat: clean_(x.status, 40), 'Ticket File': fileUrl,
+            Seat: clean_(x.status, 40), 'Ticket File': fileUrl, Aadhaar: aadhaarUrl,
           };
           row[tab.time] = time;
           byTab[k].push(row);
@@ -108,6 +119,8 @@ function doPost(e) {
       });
       // Someone who first said "not booked yet" and now uploads tickets: drop the placeholder row.
       if (!byTab.none.length) removeRows_(ss.getSheetByName(NOT_BOOKED), function (r) { return String(r[1]) === phone; });
+      // Aadhaar sent later (or with only one of the tickets) → link it on all of this family's rows.
+      if (aadhaarUrl !== NO_AADHAAR) linkAadhaar_(ss, phone, aadhaarUrl);
       return json_({ ok: true, rows: rows });
     } finally {
       lock.releaseLock();
@@ -139,6 +152,66 @@ function upsertRows_(ss, tab, objs, phone) {
   });
   if (fresh.length) sh.getRange(sh.getLastRow() + 1, 1, fresh.length, tab.headers.length).setValues(fresh);
   return objs.length;
+}
+
+// Puts the family's Aadhaar folder link on every row with this phone number, in all tabs.
+function linkAadhaar_(ss, phone, url) {
+  ['arrival', 'return', 'none'].forEach(function (k) {
+    const tab = TABS[k];
+    const sh = ss.getSheetByName(tab.name);
+    const fi = tab.headers.indexOf('Phone');
+    const ai = tab.headers.indexOf('Aadhaar');
+    const data = sh.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][fi]) === phone && data[i][ai] !== url) sh.getRange(i + 1, ai + 1).setValue(url);
+    }
+  });
+}
+
+// Saves Aadhaar photos/PDFs into "Aadhaar Cards/<name> - <phone>/" and returns that folder's link.
+// With no new files, returns the family's existing folder link (if they uploaded before), else ''.
+function saveAadhaar_(files, by, phone, sid) {
+  const digits = phone.replace(/\D/g, '').slice(-10);
+  const props = PropertiesService.getScriptProperties();
+  const key = 'AADHAAR_' + digits;
+  let folder = null;
+  const id = props.getProperty(key);
+  if (id) {
+    try {
+      folder = DriveApp.getFolderById(id);
+      if (folder.isTrashed()) folder = null;
+    } catch (e) { folder = null; }
+  }
+  files = files.filter(function (f) { return f && f.base64; }).slice(0, 30);
+  if (!files.length) return folder ? folder.getUrl() : '';
+  if (!folder) {
+    folder = getFolder_(AADHAAR_FOLDER).createFolder((by + ' - ' + digits).replace(/[\\/:*?"<>|']/g, ''));
+    props.setProperty(key, folder.getId());
+  }
+  let n = 0;
+  const it = folder.getFiles();
+  while (it.hasNext()) { it.next(); n++; }
+  files.forEach(function (f, j) {
+    once_(sid && sid + ':a' + j, function () {
+      const types = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
+      const mime = types[f.mimeType] ? f.mimeType : 'image/jpeg';
+      const name = (by + ' - Aadhaar ' + (++n)).replace(/[\\/:*?"<>|']/g, '') + types[mime];
+      return folder.createFile(Utilities.newBlob(Utilities.base64Decode(f.base64), mime, name)).getUrl();
+    });
+  });
+  return folder.getUrl();
+}
+
+// Runs `fn` once per key for 6 hours (remembering its result), so retries of the same submission
+// don't create duplicate files in Drive. Without a key it just runs `fn`.
+function once_(key, fn) {
+  if (!key) return fn();
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(key);
+  if (hit !== null) return hit;
+  const result = fn();
+  cache.put(key, String(result), 21600);
+  return result;
 }
 
 function removeRows_(sh, test) {

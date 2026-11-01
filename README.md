@@ -19,8 +19,9 @@ Browser (Vercel static site)
 2. Open **Extensions → Apps Script**, delete the sample code and paste in everything from `apps-script/Code.gs`.
 3. Pick `setup` in the function dropdown and click **Run**. Approve the permissions (it's your own script, so click
    *Advanced → Go to project* if Google warns you). This creates the **Coming to Malda**, **Going from Malda**, **Not booked yet** and **Summary** tabs and a
-   Drive folder called *Anniversary travel tickets* with two subfolders, **Coming to Malda** and **Going from Malda**.
-   Each uploaded ticket is saved into the subfolder for its direction.
+   Drive folder called *Anniversary travel tickets* with three subfolders: **Coming to Malda**, **Going from Malda**
+   and **Aadhaar Cards**. Each ticket is saved into the subfolder for its direction; each family's Aadhaar photos go
+   into their own folder inside **Aadhaar Cards**.
 4. Click **Deploy → New deployment → Select type: Web app**.
    - Execute as: **Me**
    - Who has access: **Anyone**
@@ -48,12 +49,14 @@ Without a key, screenshots are still read by the in-browser OCR, but less accura
 
 | Tab | Columns |
 |---|---|
-| **Coming to Malda** | Journey · Passenger · Phone · Train No · Train Name · Seat · Arrival · Ticket File |
-| **Going from Malda** | Journey · Passenger · Phone · Train No · Train Name · Seat · Departure · Ticket File |
-| **Not booked yet** | Passenger · Phone |
+| **Coming to Malda** | Journey · Passenger · Phone · Train No · Train Name · Seat · Arrival · Ticket File · Aadhaar |
+| **Going from Malda** | Journey · Passenger · Phone · Train No · Train Name · Seat · Departure · Ticket File · Aadhaar |
+| **Not booked yet** | Passenger · Phone · Aadhaar |
 | **Summary** | Headcounts, plus guests per arriving and departing train |
 
 - Every passenger on a ticket gets their own row. "Ticket File" links to the file in the matching Drive subfolder.
+- "Aadhaar" links to the family's folder in **Aadhaar Cards** (or says "Not uploaded"). Aadhaar sent in a later
+  submission is linked on all of that family's rows. Aadhaar photos are never sent to Gemini.
 - Re-submitting the same passenger from the same phone number updates their row instead of adding a duplicate.
 - To get an Excel file, use **File → Download → Microsoft Excel (.xlsx)**.
 
@@ -71,4 +74,4 @@ The parser tests use a made-up ticket, so no real passenger data goes into the r
 
 ## Privacy
 Tickets include names, ages and PNRs. The sheet and Drive folder are private to you, so share them only with the organisers.
-The page has `noindex` so search engines don't list it. Delete the Drive folder after the event.
+The page has `noindex` so search engines don't list it. Keep the **Aadhaar Cards** folder private (never "anyone with the link") and delete the Drive folder after the event.

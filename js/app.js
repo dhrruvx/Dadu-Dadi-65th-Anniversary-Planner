@@ -261,6 +261,80 @@ $('#manual').addEventListener('click', () => {
 
 $('#notBooked').addEventListener('change', (e) => form.classList.toggle('disabled', e.target.checked));
 
+// ---------- Aadhaar photos ----------
+// Shrunk on the phone and sent straight to the organisers' Drive. Never sent to the AI reader.
+
+const MAX_AADHAAR_FILES = 30;
+const aadhaar = []; // { el, ready: Promise, file: { name, mimeType, base64 } | null, error }
+
+function addAadhaar(file) {
+  if (aadhaar.length >= MAX_AADHAAR_FILES) return;
+  const el = document.createElement('div');
+  el.className = 'thumb loading';
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'icon';
+  remove.setAttribute('aria-label', `Remove ${file.name}`);
+  remove.textContent = '✕';
+  const item = { el, file: null, error: '' };
+  remove.addEventListener('click', () => {
+    aadhaar.splice(aadhaar.indexOf(item), 1);
+    el.remove();
+  });
+  el.append(remove);
+  $('#aadhaarList').append(el);
+  aadhaar.push(item);
+
+  item.ready = (async () => {
+    try {
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      if (isPdf) {
+        if (file.size > MAX_UPLOAD_BYTES) throw new UserError('Too large');
+        item.file = { name: file.name, mimeType: 'application/pdf', base64: await blobToBase64(file) };
+        const label = document.createElement('div');
+        label.className = 'pdf';
+        label.textContent = 'PDF';
+        el.prepend(label);
+      } else {
+        const jpeg = await imageToJpeg(file, 1600);
+        item.file = { name: 'aadhaar.jpg', mimeType: 'image/jpeg', base64: await blobToBase64(jpeg) };
+        const img = document.createElement('img');
+        img.alt = file.name;
+        img.src = URL.createObjectURL(jpeg);
+        el.prepend(img);
+      }
+    } catch (err) {
+      console.error(err);
+      item.error = err instanceof UserError ? 'Too large' : 'Can’t open';
+      el.classList.add('bad');
+      const msg = document.createElement('span');
+      msg.className = 'bad-msg';
+      msg.textContent = item.error;
+      el.append(msg);
+    } finally {
+      el.classList.remove('loading');
+    }
+  })();
+}
+
+function handleAadhaar(files) {
+  for (const f of files) addAadhaar(f);
+  if (files.length && aadhaar.length >= MAX_AADHAAR_FILES) showError(`You can add up to ${MAX_AADHAAR_FILES} Aadhaar photos.`);
+}
+
+$('#aadhaarFile').addEventListener('change', (e) => {
+  handleAadhaar([...e.target.files]);
+  e.target.value = '';
+});
+
+const aDrop = $('#aadhaarDrop');
+['dragenter', 'dragover'].forEach((t) => aDrop.addEventListener(t, (e) => { e.preventDefault(); aDrop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((t) => aDrop.addEventListener(t, () => aDrop.classList.remove('over')));
+aDrop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  handleAadhaar([...e.dataTransfer.files]);
+});
+
 function showError(msg, focusEl) {
   const el = $('#error');
   el.textContent = msg;
@@ -298,18 +372,27 @@ form.addEventListener('submit', async (e) => {
     }
   }
 
+  if (aadhaar.some((a) => a.error)) {
+    return showError('One of the Aadhaar files couldn’t be opened. Please remove it (✕) and add a JPG/PNG photo instead.');
+  }
   if (!cfg.appsScriptUrl) return showError('This form isn’t connected to the sheet yet (appsScriptUrl in config.js is empty).');
 
+  const btn = $('#submit');
+  btn.disabled = true;
+  btn.textContent = 'Preparing photos…';
+  await Promise.all(aadhaar.map((a) => a.ready));
+
   const payload = {
+    // Same id on every retry of this submission, so files aren't saved twice.
+    submissionId: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     submittedBy: name.value.trim(),
     phone: phone.value.trim(),
     notBooked,
     website: form.website.value,
     tickets: notBooked ? [] : tickets.map(readTicket),
+    aadhaar: aadhaar.filter((a) => a.file).map((a) => a.file),
   };
 
-  const btn = $('#submit');
-  btn.disabled = true;
   btn.textContent = 'Sending…';
   try {
     await saveWithRetry(payload, (n) => (btn.textContent = `Busy, retrying (${n})…`));
@@ -349,6 +432,7 @@ async function saveWithRetry(payload, onRetry, attempts = 4) {
 $('#again').addEventListener('click', () => {
   form.reset();
   tickets.splice(0).forEach((t) => t.el.remove());
+  aadhaar.splice(0).forEach((a) => a.el.remove());
   form.classList.remove('disabled');
   form.hidden = false;
   $('#done').hidden = true;
